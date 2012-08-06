@@ -4,6 +4,22 @@
 
 set -x # Debugging
 
+
+#///////  stackoverflow.com/q/59895#answer-246128
+
+SOURCE="${BASH_SOURCE[0]}"
+DIR="$( dirname "$SOURCE" )"
+while [ -h "$SOURCE" ]
+do 
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+  DIR="$( cd -P "$( dirname "$SOURCE"  )" && pwd )"
+done
+DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+
+#\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+
 site='192.168.121.108'
 admin='/administrator/'
 admin_gateway='index\.php\?'
@@ -28,35 +44,23 @@ extra_get_params=''
 check_url=''
 
 
-# Get the login page
-#curl --cookie-jar $cookie $site$admin > $login_html
-# Extract the CSRF token
-#token="$(./extract_token.py $login_html)"
-# Establish a session
-#curl --cookie $cookie --cookie-jar $cookie --trace-ascii $trace --data \
-#    "$user_param=$username&$extra_post_params$passwd_param=$passwd&$token=1"\
-#    $site$admin$admin_gateway > $result
-# Make sure we can view the admin page
-#curl --cookie $cookie --cookie-jar $cookie --trace-ascii $trace $site$admin\
-#    > $result
+
 
 # Loop through the file passed as argument
-rm "./htaccess"
-rm "./.htaccess"
-touch "./htaccess"
-echo "RewriteEngine On" > "./htaccess"
+rm "$DIR/htaccess"
+rm "$DIR/.htaccess"
+touch "$DIR/htaccess"
+echo "RewriteEngine On" > "$DIR/htaccess"
 
 while read line
     do
         # Parse and clean the input
         line="$(echo $line | awk /http/)"
-#        "$(echo $line | cut -d',' -f1 | awk -F'.com/' '{print $2}' )"
         old="$store_gateway$(echo $line | cut -d',' -f'1' |\
             sed "s/\ /-/g;s/www.cayuseshop.com/$site/g;s/?//g;" |\
             awk -F"index.php" '{print $2}' |\
             sed 's/\./\\\./g;s/=/\\\=/g;s/&/\\\&/g' )"
 
-#        "$(echo $line | cut -d',' -f2 | awk -F'.com/' '{print $2}' )"
         new="$(echo $line | cut -d',' -f'2' | \
             sed "s/\ /-/g;" | awk -F'.com/' '{print $2}' )"
 
@@ -71,44 +75,28 @@ while read line
                 continue
         fi
 
-#        num_params="$(./num_params.py "$old")"
-
-#        # Send the cleaned data to the plugin
-#        curl --cookie $cookie --cookie-jar $cookie --trace-ascii $trace \
-#            --data-urlencode "origurl=$old"\
-#            --data "sefurl=$new&option=com_sef&\
-#            id=0&task=save&controller=sefurls&\
-#            Itemid=$Itemid"\
-#            $site$admin$url_gateway$extra_get_param\
-#            > $result
-#
-#        echo "NUM_PARAMS:: $num_params"
-#        echo "OLD:: $old"
-#        echo "NEW:: $new"
-
-        echo "RewriteRule $new /$old  [R=301,L]" >> ./htaccess
+        echo "RewriteRule $new /$old  [R=301,L] #FLEXURL" >> "$DIR/htaccess"
 
     done <$1
 
-rm "./redirect_urls.txt"
-rm "./htaccess.old"
 
 cp "/var/www/.htaccess" "./"
 
-cp "./htaccess" "redirect_urls.txt"
+cp "$DIR/htaccess" "redirect_urls.txt"
 
 cat "/var/www/.htaccess" |\
  awk '!/RewriteEngine/' |\
  awk '!/index.php/' |\
- awk '!/index\.php/' >> "./htaccess.old"
+ awk '!/FLEXURL/'\ |
+ awk '!/index\.php/' > "$DIR/htaccess.old"
 
-cat "./htaccess.old" >> "./htaccess"
-chown www-data.www-data ./htaccess
+cat "$DIR/htaccess.old" >> "$DIR/htaccess"
+chown www-data.www-data "./htaccess"
 
 # Clean Up
 if [ "$?" == "0" ]
     then
-        mv "./htaccess" "/var/www/.htaccess"
+        mv "$DIR/htaccess" "/var/www/.htaccess"
         exit 0
     else
         echo "FAILED!"
