@@ -2,31 +2,10 @@
 
 # Peter Novotnak::2012, Flexion INC
 
-#set -x # Debugging
-
-
 site='cayuseshop.com'
-admin='/administrator/'
-admin_gateway='index\.php\?'
-url_gateway='index2.php?'
-store_gateway=$admin_gateway
-login_html='./login.html'
-cookie='./cookies.txt'
+store_gateway='/index.php?'
+www='/var/www'
 
-trace='./trace.txt'
-login_html='./login_page.html'
-result='./result.html'
-ww_dat='/var/www/scrape/'
-
-token=''
-user_param='username'
-username='admin'
-passwd_param='passwd'
-passwd='222state'
-extra_post_params='option=com_login&task=login&'
-extra_get_params=''
-
-check_url=''
 
 debug=false
 
@@ -50,7 +29,8 @@ DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
 
 
-
+# Import pretty messages
+. "$DIR/bsfl"
 
 
 
@@ -66,7 +46,7 @@ while read line
     do
         # Parse and clean the input
         line="$(echo $line | awk /http/)"
-        old="/$store_gateway$(echo $line | cut -d',' -f'1' |\
+        old="$store_gateway$(echo $line | cut -d',' -f'1' |\
             sed "s/\ /-/g;s/www.cayuseshop.com/$site/g;s/?//g;" |\
             awk -F"index.php" '{print $2}' |\
             sed 's/\./\\\./g;s/=/\\\=/g;s/&/\\\&/g' )"
@@ -103,7 +83,7 @@ cat "$DIR/tmp1" | "$DIR/sitemap_generator.py" "$DIR"
 while read line
     do
         echo "RewriteRule \
-$(echo $line | cut -d',' -f'2') \
+^$(echo $line | cut -d',' -f'2' | sed 's/ //g' )$ \
 $(echo $line | cut -d',' -f'1') \
 [R=301,L] #FLEXURL" >> "$DIR/htaccess"
 
@@ -111,8 +91,8 @@ $(echo $line | cut -d',' -f'1') \
 
 
 # Merge the old and new .htaccess files
-cp "/var/www/.htaccess" "./"
-cat "/var/www/.htaccess" |\
+cp "$www/.htaccess" "./"
+cat "$www/.htaccess" |\
  awk '!/RewriteEngine/' |\
  awk '!/index.php/' |\
  awk '!/FLEXURL/'\ |
@@ -129,9 +109,9 @@ if $debug
             then
                 read -p "
                 
-Move { sitemap.xml } and { .htaccess } to /var/www ?
+Move { sitemap.xml } and { .htaccess } to $www ?
 
-( DELETE EXISTING DATA!? ) [y/n]  : "
+( Move sitemap and .htaccess to ~[] ) [y/n]  : "
                 if [ "$REPLY" == "y" ]
                     then
                         echo -ne "Continuing "
@@ -151,9 +131,11 @@ Move { sitemap.xml } and { .htaccess } to /var/www ?
                         exit 1
                    fi
             fi
-        mv "$DIR/sitemap.xml" "/var/www/sitemap.xml"
-        mv "$DIR/htaccess" "/var/www/.htaccess"
-        rm tmp*
+        cmd "mv $www/sitemap.xml $www/~sitemap.xml"
+        cmd "mv $www/.htaccess $www/~.htaccess"
+        cmd "mv $DIR/sitemap.xml $www/sitemap.xml"
+        cmd "mv $DIR/htaccess $www/.htaccess"
+        cmd "rm tmp*"
         echo "Done!"
         exit 0
     fi
